@@ -8,7 +8,7 @@ try{const saved=JSON.parse(localStorage.getItem(key));if(saved?.version===2){gam
 function loadMatchBank(){
  const active=JSON.parse(document.getElementById('bank').textContent);
  const bank=game?.cats?.some(id=>!active.categories.some(c=>c.id===id))?JSON.parse(document.getElementById('legacyBank').textContent):active;
- categories=bank.categories;questions=bank.questions.concat(bank===active?categories.flatMap(extraQuestions):[])
+ categories=bank.categories;questions=bank===active && !(game && !game.deck)?balancedBank(bank):bank.questions
 }
 loadMatchBank();
 function save(){try{localStorage.setItem(key,JSON.stringify({version:2,match:game,pools:poolCounts}))}catch{}render()}
@@ -48,7 +48,7 @@ function categorySections(){
 }
 function render(){
  document.body.classList.toggle('homeNight',!game&&!isLight());
- if(!game){app.innerHTML=`<form class="lobby"><div class="homeTheme"><button type="button" data-reset-pools>إعادة ضبط مجموعات الأسئلة</button><button type="button" data-guide>شرح وسائل المساعدة</button>${themeSwitch()}</div><h2>فئات المباراة <small id="count" aria-live="polite">0 / 6</small></h2>${categorySections()}<aside id="pickTray" aria-label="الفئات المختارة" hidden></aside><p id="pickHint" role="status"></p>${teamsForm()}</form>`;return}
+ if(!game){app.innerHTML=`<form class="lobby"><div class="homeTheme"><button type="button" data-reset-pools>إعادة ضبط مجموعات الأسئلة</button><button type="button" data-guide>شرح وسائل المساعدة</button>${themeSwitch()}</div><h2>فئات المباراة <small id="count" aria-live="polite">0 / 6</small></h2><p class="tierGuide">في كل فئة سؤالان لكل مستوى: 200 سهل · 400 متوسط · 600 صعب</p>${categorySections()}<aside id="pickTray" aria-label="الفئات المختارة" hidden></aside><p id="pickHint" role="status"></p>${teamsForm()}</form>`;return}
  const team=i=>escapeHtml(game.names[i]),q=(game.deck||questions).find(x=>x.id===game.current),c=categories.find(x=>x.id===q?.categoryId);
  const scores=`<div class="bar"><strong class="team">${team(0)} · ${game.scores[0]}</strong><strong class="team">${team(1)} · ${game.scores[1]}</strong></div>`;
  if(game.away){app.innerHTML='<section class="panel"><h1>المباراة محفوظة</h1>'+button('استئناف المباراة','resumeMatch')+'</section>';return}

@@ -6,12 +6,14 @@ function questionView(q,c){
  let content,controls;
  if(stage==='question'){
   content='<div class="qTimer">'+button(game.paused?'▶':'Ⅱ','pause','aria-label="بدء أو إيقاف المؤقت"')+'<strong id="clock"></strong>'+button('↻','restart','aria-label="إعادة المؤقت"')+'</div><h1>'+escapeHtml(q.text)+'</h1>';
+  if(q.followUp)content+='<section class="expertPart"><b>الجزء الثاني · يلزم الجوابان لنيل النقاط</b><p>'+escapeHtml(q.followUp.prompt)+'</p></section>';
   content+=questionArt(q,c);
   if(q.type==='multiple')content+='<div class="quizOptions">'+q.options.map((option,i)=>'<span>'+ (i+1)+' · '+escapeHtml(option)+'</span>').join('')+'</div>';
   if(q.type==='charades')content+='<details class="actorCard"><summary>للممثّل فقط · افتح البطاقة بعيداً عن الفريق</summary><b>'+escapeHtml(q.answer)+'</b><p>أغلق البطاقة قبل أن تبدأ التمثيل.</p></details>';
   controls=button('الإجابة','answer','class="qPrimary"')+(!game.steal?button('تمرير للخصم','miss','class="secondary"'):'');
  }else if(stage==='answer'){
   content='<small>الإجابة الصحيحة</small><h1>'+escapeHtml(q.answer)+'</h1><p class="qExplanation">'+escapeHtml(q.explanation)+'</p>';
+  if(q.followUp)content+='<section class="expertPart"><b>جواب الجزء الثاني</b><p>'+escapeHtml(q.followUp.answer)+'</p></section>';
   content+=questionArt(q,c,true);
   if(q.source)content+='<a class="sourceLink" href="'+escapeHtml(q.source[1])+'" target="_blank" rel="noopener noreferrer">المصدر · '+escapeHtml(q.source[0])+'</a>';
   controls=button('أي فريق؟','choose','class="qPrimary"')+button('ارجع للسؤال','backQuestion','class="secondary"');
@@ -20,5 +22,5 @@ function questionView(q,c){
   controls=button('العودة للإجابة','backAnswer','class="secondary"');
  }
  const note=[game.pit?'الحفرة مفعّلة':'',game.note].filter(Boolean).join(' · ');
- return '<div class="arena questionArena '+(isLight()?'':'nightQ')+'">'+head+'<div class="qLayout">'+side+'<section class="qFrame"><span class="qPoints">'+q.points+' نقطة</span><div class="qContent">'+content+(note?'<p class="qNote">'+escapeHtml(note)+'</p>':'')+'</div><div class="qControls">'+controls+'<span class="qCategory">'+escapeHtml(c.name)+'</span></div></section></div></div>'
+ return '<div class="arena questionArena '+(isLight()?'':'nightQ')+'">'+head+'<div class="qLayout">'+side+'<section class="qFrame"><span class="qPoints">'+q.points+' نقطة · '+({200:'سهل',400:'متوسط',600:'صعب'}[q.points]||'')+'</span><div class="qContent">'+content+(note?'<p class="qNote">'+escapeHtml(note)+'</p>':'')+'</div><div class="qControls">'+controls+'<span class="qCategory">'+escapeHtml(c.name)+'</span></div></section></div></div>'
 }

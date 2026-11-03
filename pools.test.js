@@ -3,8 +3,8 @@ test('all live categories supply five playable decks with safe artwork and persi
  const html=fs.readFileSync('index.html','utf8');
  const bank=JSON.parse(html.match(/id="bank"[^>]*>(.*?)<\/script>/s)[1]);
  const ctx=vm.createContext({...bank,localStorage:{setItem(k,v){this.saved=JSON.parse(v)}},key:'test',render(){},alert(){}});
- vm.runInContext(fs.readFileSync('pool-content.js','utf8')+fs.readFileSync('question-art.js','utf8'),ctx);
- vm.runInContext('let game; questions=questions.concat(categories.flatMap(extraQuestions));',ctx);
+ vm.runInContext(fs.readFileSync('difficulty.js','utf8')+fs.readFileSync('pool-content.js','utf8')+fs.readFileSync('question-art.js','utf8'),ctx);
+ vm.runInContext('let game; questions=balancedBank({categories,questions});',ctx);
  for(const c of bank.categories){
   ctx.cat=c;
   const rows=vm.runInContext('questions.filter(q=>q.categoryId===cat.id)',ctx);
@@ -12,7 +12,10 @@ test('all live categories supply five playable decks with safe artwork and persi
   for(let i=0;i<30;i++){
    const q=rows[i]; assert.ok(q.answer&&q.text,c.id);assert.equal(q.points,[200,200,400,400,600,600][i%6]);
    ctx.q=q;const src=vm.runInContext('questionArt(q,cat)',ctx).match(/src="(question-media\/[a-z]+-(?:pool-)?[0-9]+\.jpg)"/); assert.ok(src && fs.existsSync(src[1]),q.id);
-   if(q.type==='multiple')assert.ok(q.options.includes(q.answer));
+   assert.equal(q.difficulty,['easy','medium','hard'][Math.floor(i%6/2)]);
+   if(q.type==='multiple'){assert.ok(q.options.includes(q.answer));assert.equal(new Set(q.options).size,4);}
+   else if(q.points===600&&q.type!=='charades')assert.ok(q.followUp.prompt&&q.followUp.answer,q.id);
+   assert.equal(new Set(rows.map(r=>r.id)).size,30,c.id);
   }
  }
  ctx.match={cats:bank.categories.slice(0,6).map(c=>c.id)};
