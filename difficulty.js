@@ -88,6 +88,7 @@ function balancePack(rows,category,pack){
  });
 }
 function balancedBank(bank){
+ if(typeof refreshedBank==='function')return refreshedBank(bank);
  const all=[];
  for(const c of bank.categories){
   const rows=bank.questions.filter(q=>q.categoryId===c.id).concat(extraQuestions(c));

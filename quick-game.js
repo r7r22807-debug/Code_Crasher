@@ -4,14 +4,23 @@ const app=document.getElementById('app'),key='quick-arabic-match-v1';
 const englishDigits=value=>String(value).replace(/[\u0660-\u0669\u06f0-\u06f9]/g,d=>String(d.charCodeAt(0)&15));
 const escapeHtml=x=>englishDigits(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let game=null;
-try{const saved=JSON.parse(localStorage.getItem(key));if(saved?.version===2){game=saved.match;poolCounts=saved.pools||{}}else game=saved}catch{}
+try{const saved=JSON.parse(localStorage.getItem(key));if(saved?.version===3){game=saved.match;poolCounts=saved.pools||{}}else if(saved?.version===2){game=saved.match;poolCounts={}}else game=saved}catch{}
 function loadMatchBank(){
  const active=JSON.parse(document.getElementById('bank').textContent);
  const bank=game?.cats?.some(id=>!active.categories.some(c=>c.id===id))?JSON.parse(document.getElementById('legacyBank').textContent):active;
- categories=bank.categories;questions=bank===active && !(game && !game.deck)?balancedBank(bank):bank.questions
+ categories=bank.categories;questions=bank===active && !(game && !game.deck)?balancedBank(bank):bank.questions;
+ // Repair the short-lived three-question layout without discarding match progress.
+ if(game?.deck&&game.deck.length===game.cats.length*3&&game.deck.every(q=>/^[a-z]+-v3-\d+$/.test(q.id))){
+  const expanded=game.deck.flatMap(q=>{
+   const partner=questions.find(item=>item.id===q.id.replace('-v3-','-v4-b-'));
+   return partner?[q,partner]:[q];
+  });
+  if(expanded.length===game.cats.length*6)game.deck=expanded;
+ }
 }
 loadMatchBank();
-function save(){try{localStorage.setItem(key,JSON.stringify({version:2,match:game,pools:poolCounts}))}catch{}render()}
+function save(){try{localStorage.setItem(key,JSON.stringify({version:3,match:game,pools:poolCounts}))}catch{}render()}
+function matchQuestionCount(){return game?.deck?.length || (game?.cats?.length||6)*6}
 const button=(text,action,extra='')=>`<button data-action="${action}" ${extra}>${text}</button>`;
 let preferredTheme=null;
 try{preferredTheme=localStorage.getItem('arena-theme')}catch{}
@@ -48,14 +57,14 @@ function categorySections(){
 }
 function render(){
  document.body.classList.toggle('homeNight',!game&&!isLight());
- if(!game){app.innerHTML=`<form class="lobby"><div class="homeTheme"><button type="button" data-reset-pools>إعادة ضبط مجموعات الأسئلة</button><button type="button" data-guide>شرح وسائل المساعدة</button>${themeSwitch()}</div><h2>فئات المباراة <small id="count" aria-live="polite">0 / 6</small></h2><p class="tierGuide">في كل فئة سؤالان لكل مستوى: 200 سهل · 400 متوسط · 600 صعب</p>${categorySections()}<aside id="pickTray" aria-label="الفئات المختارة" hidden></aside><p id="pickHint" role="status"></p>${teamsForm()}</form>`;return}
+ if(!game){app.innerHTML=`<form class="lobby"><div class="homeTheme"><button type="button" data-reset-pools>إعادة ضبط مجموعات الأسئلة</button><button type="button" data-guide>شرح وسائل المساعدة</button>${themeSwitch()}</div><h2>فئات المباراة <small id="count" aria-live="polite">0 / 6</small></h2><p class="tierGuide">لكل فريق سؤال في كل مستوى: 200 سهل · 400 متوسط · 600 صعب · سؤالان لكل قيمة وخمس مجموعات لكل فئة</p>${categorySections()}<aside id="pickTray" aria-label="الفئات المختارة" hidden></aside><p id="pickHint" role="status"></p>${teamsForm()}</form>`;return}
  const team=i=>escapeHtml(game.names[i]),q=(game.deck||questions).find(x=>x.id===game.current),c=categories.find(x=>x.id===q?.categoryId);
  const scores=`<div class="bar"><strong class="team">${team(0)} · ${game.scores[0]}</strong><strong class="team">${team(1)} · ${game.scores[1]}</strong></div>`;
  if(game.away){app.innerHTML='<section class="panel"><h1>المباراة محفوظة</h1>'+button('استئناف المباراة','resumeMatch')+'</section>';return}
- if(game.ended||game.used.length===36){app.innerHTML=resultView();return}
+ if(game.ended||game.used.length===matchQuestionCount()){app.innerHTML=resultView();return}
  if(q&&!game.reviewBoard){app.innerHTML=questionView(q,c);clock();return}
  function column(items,side){return '<div class="flex gap-1 flex-col stack">'+items.map(q=>button(game.used.includes(q.id)?'✓':q.points,'pick:'+q.id,`class="${side} game-text" aria-label="${categories.find(c=>c.id===q.categoryId).name}، ${q.points} نقطة" ${(game.current||game.used.includes(q.id))?'disabled':''}`)).join('')+'</div>'}
- app.innerHTML=`<div class="arena ${isLight()?'lightBoard':'darkBoard'}"><div class="topline"><div class="mast"><b class="wordmark">تحدّي<br>الفريقين</b><strong class="turntag">دور فريق · ${team(game.turn)}</strong></div>${button('توزيع اللاعبين','rosters')}<b>${escapeHtml(game.title||'')}</b>${game.pit?'الحفرة مفعّلة':''}${button('مباراة جديدة'+navIcon('replay'),'new','class="newMatchNav"')}${matchNav(true)}</div><section class="board score-card-page-wrapper">${game.cats.map(id=>{const c=categories.find(x=>x.id===id),items=(game.deck||questions).filter(q=>q.categoryId===id);return `<article class="grid grid-cols-3 items-stretch justify-center">${column([items[0],items[2],items[4]],'scoreLeft')}<div class="overflow-hidden relative cover">${poster(c)}<b>${c.name}</b></div>${column([items[1],items[3],items[5]],'scoreRight')}</article>`}).join('')}</section><div class="scorestrip">${boardTeam(0)}<div class="boardcount">الأسئلة المتبقية<strong>${36-game.used.length} / 36</strong></div>${boardTeam(1)}</div></div>`
+ app.innerHTML=`<div class="arena ${isLight()?'lightBoard':'darkBoard'}"><div class="topline"><div class="mast"><b class="wordmark">تحدّي<br>الفريقين</b><strong class="turntag">دور فريق · ${team(game.turn)}</strong></div>${button('توزيع اللاعبين','rosters')}<b>${escapeHtml(game.title||'')}</b>${game.pit?'الحفرة مفعّلة':''}${button('مباراة جديدة'+navIcon('replay'),'new','class="newMatchNav"')}${matchNav(true)}</div><section class="board score-card-page-wrapper">${game.cats.map(id=>{const c=categories.find(x=>x.id===id),items=(game.deck||questions).filter(q=>q.categoryId===id);return `<article class="grid grid-cols-3 items-stretch justify-center">${column([items[0],items[2],items[4]],'scoreLeft')}<div class="overflow-hidden relative cover">${poster(c)}<b>${c.name}</b></div>${column([items[1],items[3],items[5]],'scoreRight')}</article>`}).join('')}</section><div class="scorestrip">${boardTeam(0)}<div class="boardcount">الأسئلة المتبقية<strong>${matchQuestionCount()-game.used.length} / ${matchQuestionCount()}</strong></div>${boardTeam(1)}</div></div>`
 }
 function boardTeam(i){
  const name=escapeHtml(game.names[i]);
@@ -109,7 +118,7 @@ app.addEventListener('input',e=>{if(e.target.name==='player')resetDraw()});
 app.onclick=e=>{
  if(!game && e.target.closest('[data-reset-pools]')){
   if(!confirm('هل تريد استعادة المجموعات الـ5 لكل فئة؟ قد تظهر الأسئلة السابقة مجددًا.'))return;
-  try{localStorage.setItem(key,JSON.stringify({version:2,match:null,pools:{}}))}
+  try{localStorage.setItem(key,JSON.stringify({version:3,match:null,pools:{}}))}
   catch{alert('تعذّر حفظ إعادة الضبط. حاول مجددًا.');return}
   poolCounts={};
   for(const input of app.querySelectorAll('[name=category]')){
@@ -168,12 +177,12 @@ app.onclick=e=>{
  }
  if(a==='resumeMatch'){game.away=false;game.reviewBoard=false;save();return}
  if(a==='endMatch'){confirmEnd();return}
- if((game.ended||game.used.length===36)&&a==='resultExit'){game=null;loadMatchBank();splitPlayers=[[],[]];save();return}
- if((game.ended||game.used.length===36)&&a==='replay'){
+ if((game.ended||game.used.length===matchQuestionCount())&&a==='resultExit'){game=null;loadMatchBank();splitPlayers=[[],[]];save();return}
+ if((game.ended||game.used.length===matchQuestionCount())&&a==='replay'){
   const {names,cats,title,players,aids,lightQuestions}=game;
   reserveMatch({names,cats,title,players,aids,lightQuestions,scores:[0,0],turn:0,current:null,used:[],spent:[[],[]]});return
  }
- if(/^score:[01]:(plus|minus)$/.test(a)&&!game.current&&game.used.length<36){const [,team,dir]=a.split(':');game.scores[Number(team)]+=dir==='plus'?100:-100;save();return}if(a.startsWith('aid:')){useAid(a.slice(4));return}if(a==='new'){if(game.used.length===36||confirm('إنهاء المباراة الحالية وبدء مباراة جديدة؟')){game=null;loadMatchBank();splitPlayers=[[],[]];save()}return}if(a.startsWith('pick:')&&!game.current&&!game.used.includes(a.slice(5))){Object.assign(game,{questionStage:'question',paused:false,current:a.slice(5),actor:game.turn,steal:false,shown:false,until:Date.now()+60000});save();return}if(!game.current)return;
+ if(/^score:[01]:(plus|minus)$/.test(a)&&!game.current&&game.used.length<matchQuestionCount()){const [,team,dir]=a.split(':');game.scores[Number(team)]+=dir==='plus'?100:-100;save();return}if(a.startsWith('aid:')){useAid(a.slice(4));return}if(a==='new'){if(game.used.length===matchQuestionCount()||confirm('إنهاء المباراة الحالية وبدء مباراة جديدة؟')){game=null;loadMatchBank();splitPlayers=[[],[]];save()}return}if(a.startsWith('pick:')&&!game.current&&!game.used.includes(a.slice(5))){Object.assign(game,{questionStage:'question',paused:false,current:a.slice(5),actor:game.turn,steal:false,shown:false,until:Date.now()+60000});save();return}if(!game.current)return;
  const stage=game.questionStage||(game.shown?'answer':'question');
  if(a.startsWith('award:')&&stage==='choose'){
   const winner=a.slice(6);
@@ -210,5 +219,5 @@ function confirmEnd(){
 }
 function resultView(){
  const tied=game.scores[0]===game.scores[1],winner=game.scores[0]>game.scores[1]?0:1;
- return '<section class="resultStage"><div class="party left" aria-hidden="true">🎉</div><div class="party right" aria-hidden="true">🎉</div><div class="resultLogo">تحدّي الفريقين</div><h1>'+(tied?'تعادل الفريقان':'مبروك الفوز!')+'</h1><h2>'+(tied?'للفريقين':escapeHtml(game.names[winner]))+'</h2><div class="resultTeams">'+game.names.map((n,i)=>'<article><b>'+escapeHtml(n)+'</b><strong dir="ltr">'+game.scores[i]+'</strong></article>').join('')+'</div><small>الأسئلة المحسومة · '+game.used.length+' / 36</small><div class="resultActions">'+button('الخروج','resultExit')+button('العب مرة ثانية','replay')+'</div></section>'
+ return '<section class="resultStage"><div class="party left" aria-hidden="true">🎉</div><div class="party right" aria-hidden="true">🎉</div><div class="resultLogo">تحدّي الفريقين</div><h1>'+(tied?'تعادل الفريقان':'مبروك الفوز!')+'</h1><h2>'+(tied?'للفريقين':escapeHtml(game.names[winner]))+'</h2><div class="resultTeams">'+game.names.map((n,i)=>'<article><b>'+escapeHtml(n)+'</b><strong dir="ltr">'+game.scores[i]+'</strong></article>').join('')+'</div><small>الأسئلة المحسومة · '+game.used.length+' / '+matchQuestionCount()+'</small><div class="resultActions">'+button('الخروج','resultExit')+button('العب مرة ثانية','replay')+'</div></section>'
 }

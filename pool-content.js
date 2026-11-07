@@ -68,7 +68,7 @@ function reserveMatch(next) {
       return deck;
     });
     next.deck=decks.flat();
-    localStorage.setItem(key, JSON.stringify({version:2,match:next,pools:counts}));
+    localStorage.setItem(key, JSON.stringify({version:3,match:next,pools:counts}));
     poolCounts=counts;
     game=next;
     render();

@@ -42,6 +42,12 @@ function legacyQuestionArt(q,c){
 }
 
 function questionArt(q,c,revealed=false){
+ if(q.image){
+  // Explicitly vetted context images. No answer-driven lookup, caption, crop or reveal.
+  if(!/^(?:[a-z]+-(?:pool-)?\d+|photo-\d+)$/.test(q.image))return '';
+  const src=q.image.startsWith('photo-')?'question-photos/'+q.image.slice(6)+'.jpg':'question-media/'+q.image+'.jpg';
+  return '<img class="questionScene" src="'+src+'" alt="صورة من مجال السؤال" decoding="async">';
+ }
  if(!currentPhotoCategories.has(c.id))return legacyQuestionArt(q,c);
  if(!/^[a-z]+-(?:pool-)?[0-9]+$/.test(q.id))return '';
  const image='<img class="questionScene" src="question-media/'+q.id+'.jpg" alt="" decoding="async">';
